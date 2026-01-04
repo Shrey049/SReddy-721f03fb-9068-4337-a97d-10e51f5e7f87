@@ -6,9 +6,11 @@ A full-stack task management system with role-based access control (RBAC) built 
 
 ## 📺 Demo Video
 
-> **[🎬 Watch the Complete Demo Video Here](YOUR_VIDEO_URL_HERE)**
->
-> _Placeholder: Replace this link with your demo video URL (YouTube, Loom, etc.)_
+
+
+https://github.com/user-attachments/assets/0d924922-28e0-4bdc-974b-dd9292568666
+
+
 
 ---
 
