@@ -74,7 +74,7 @@ import { AuthService } from '../../core/services/auth.service';
 
             <!-- Dashboard Preview -->
             <div class="mt-16 sm:mt-24 rounded-xl border border-gray-200/60 bg-white/50 p-2 shadow-2xl backdrop-blur-sm lg:rounded-2xl lg:p-4">
-               <img src="https://tailwindui.com/img/component-images/project-app-screenshot.png" alt="App screenshot" class="rounded-lg shadow-sm ring-1 ring-gray-900/10 w-full" width="2432" height="1442">
+               <img src="app-scren.png" alt="App screenshot" class="rounded-lg shadow-sm ring-1 ring-gray-900/10 w-full">
             </div>
          </div>
       </section>
