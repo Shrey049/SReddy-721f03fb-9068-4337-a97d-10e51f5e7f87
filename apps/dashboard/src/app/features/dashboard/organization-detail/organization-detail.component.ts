@@ -1,7 +1,7 @@
 
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { UsersService } from '../../../core/services/users.service';
 import { TasksService } from '../../../core/services/tasks.service';
@@ -32,6 +32,12 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
                         </div>
                     </div>
                     <div class="mt-4 sm:mt-0 flex gap-3">
+                        <button *ngIf="orgId && permissionService.canDeleteSpecificOrganization(orgId)" 
+                                (click)="showDeleteModal = true"
+                                class="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20 hover:bg-red-100 transition-colors cursor-pointer">
+                            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Delete Organization
+                        </button>
                          <span class="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                             Active
                         </span>
@@ -71,7 +77,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
                 <div *ngIf="activeTab === 'members'" class="p-6">
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-lg font-medium text-gray-900">Organization Members</h2>
-                        <button (click)="showAddMemberModal = true" type="button" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all">
+                        <button *ngIf="orgId && permissionService.canManageOrganization(orgId)" (click)="showAddMemberModal = true" type="button" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             Add Member
                         </button>
@@ -105,7 +111,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
                                         </span>
                                     </td>
                                     <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                                        <button (click)="removeMember(user.id)" class="text-gray-400 hover:text-red-600 transition-colors">
+                                        <button *ngIf="orgId && permissionService.canDeleteSpecificOrganization(orgId)" (click)="removeMember(user.id)" class="text-gray-400 hover:text-red-600 transition-colors">
                                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
@@ -241,6 +247,52 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
                 </div>
             </div>
         </div>
+
+        <!-- Delete Organization Modal -->
+        <div *ngIf="showDeleteModal" class="fixed z-50 inset-0 overflow-y-auto" aria-labelledby="delete-modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm" aria-hidden="true" (click)="showDeleteModal = false"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900" id="delete-modal-title">Delete Organization</h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500">
+                                        Are you sure you want to delete <strong>{{ organization?.name }}</strong>? This action cannot be undone. 
+                                        All members will be removed from the organization.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
+                        <button type="button" 
+                                (click)="deleteOrganization()" 
+                                [disabled]="isDeleting"
+                                class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm disabled:opacity-50">
+                            <svg *ngIf="isDeleting" class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            {{ isDeleting ? 'Deleting...' : 'Delete Organization' }}
+                        </button>
+                        <button type="button" 
+                                (click)="showDeleteModal = false" 
+                                [disabled]="isDeleting"
+                                class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm disabled:opacity-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
   `,
     styles: []
@@ -250,6 +302,8 @@ export class OrganizationDetailComponent implements OnInit {
     tasks: ITask[] = [];
     availableUsers: IUser[] = [];
     showAddMemberModal = false;
+    showDeleteModal = false;
+    isDeleting = false;
     memberForm: FormGroup;
     orgId: string | null = null;
     isLoading = false;
@@ -259,6 +313,7 @@ export class OrganizationDetailComponent implements OnInit {
 
     constructor(
         private route: ActivatedRoute,
+        private router: Router,
         private orgService: OrganizationService,
         private usersService: UsersService,
         private tasksService: TasksService,
@@ -266,7 +321,6 @@ export class OrganizationDetailComponent implements OnInit {
         private cdr: ChangeDetectorRef,
         public permissionService: PermissionService
     ) {
-        this.assignableRoles = this.permissionService.getAssignableRoles();
         this.memberForm = this.fb.group({
             userId: ['', Validators.required],
             role: ['viewer', Validators.required]
@@ -281,6 +335,8 @@ export class OrganizationDetailComponent implements OnInit {
             const newId = params.get('id');
             if (newId && (newId !== this.orgId || !this.organization)) {
                 this.orgId = newId;
+                // Update assignable roles based on the current org
+                this.assignableRoles = this.permissionService.getAssignableRoles(newId);
                 this.loadOrg();
                 this.loadTasks();
             }
@@ -368,5 +424,26 @@ export class OrganizationDetailComponent implements OnInit {
             'viewer': 'Viewer'
         };
         return roleLabels[role] || role;
+    }
+
+    deleteOrganization() {
+        if (!this.orgId) return;
+
+        this.isDeleting = true;
+        this.cdr.detectChanges();
+
+        this.orgService.delete(this.orgId).subscribe({
+            next: () => {
+                this.showDeleteModal = false;
+                this.isDeleting = false;
+                // Navigate back to organizations list
+                this.router.navigate(['/dashboard/organizations']);
+            },
+            error: (err) => {
+                console.error('Failed to delete organization:', err);
+                this.isDeleting = false;
+                this.cdr.detectChanges();
+            }
+        });
     }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { AuditLog, AuditAction, ResourceType } from './entities/audit-log.entity';
@@ -47,6 +47,15 @@ export class AuditService {
      * - Viewer: Cannot access audit logs
      */
     async findAll(user: AuthenticatedUser, query: AuditLogQueryDto) {
+        // Check if user is viewer only (no owner/admin roles in any org)
+        const hasOwnerOrAdminRole = user.role === Role.SUPER_ADMIN ||
+            user.role === Role.OWNER ||
+            user.organizations?.some(o => o.role === 'owner' || o.role === 'admin');
+
+        if (!hasOwnerOrAdminRole) {
+            throw new ForbiddenException('Viewers cannot access audit logs');
+        }
+
         const qb = this.auditLogRepository.createQueryBuilder('audit')
             .leftJoinAndSelect('audit.user', 'user')
             .select([
@@ -64,11 +73,18 @@ export class AuditService {
                 'user.lastName',
             ]);
 
-        // Role-based scoping
-        if (user.role === Role.ADMIN) {
+        // Role-based scoping - check if user is org-level admin (not owner or super admin)
+        const isOrgAdmin = user.organizations?.some(o => o.role === 'admin') &&
+            !user.organizations?.some(o => o.role === 'owner') &&
+            user.role !== Role.SUPER_ADMIN && user.role !== Role.OWNER;
+
+        if (isOrgAdmin) {
             // Admin can only see logs for users in their organization
-            qb.innerJoin('users', 'u', 'u.id = audit.userId')
-                .andWhere('u.organizationId = :orgId', { orgId: user.organizationId });
+            const adminOrgIds = user.organizations?.map(o => o.organizationId) || [];
+            if (adminOrgIds.length > 0) {
+                qb.innerJoin('user_organizations', 'uo', 'uo.userId = audit.userId')
+                    .andWhere('uo.organizationId IN (:...orgIds)', { orgIds: adminOrgIds });
+            }
         }
         // Super Admin and Owner can see all logs (no additional filter)
 

@@ -21,7 +21,11 @@
           }
         ],
         "styles": ["apps/dashboard/src/styles.scss"],
-        "polyfills": ["apps/dashboard/src/polyfills.ts"]
+        "polyfills": ["apps/dashboard/src/polyfills.ts"],
+        "allowedCommonJsDependencies": [
+          "validator",
+          "class-validator"
+        ]
       },
       "configurations": {
         "production": {

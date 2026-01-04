@@ -12,6 +12,20 @@ describe('Organizations Endpoints', () => {
     lastName: 'Owner',
   };
 
+  const adminUser = {
+    email: `org-admin-${Date.now()}@example.com`,
+    password: 'Password123!',
+    firstName: 'Org',
+    lastName: 'Admin',
+  };
+
+  const viewerUser = {
+    email: `org-viewer-${Date.now()}@example.com`,
+    password: 'Password123!',
+    firstName: 'Org',
+    lastName: 'Viewer',
+  };
+
   const regularUser = {
     email: `org-regular-${Date.now()}@example.com`,
     password: 'Password123!',
@@ -22,6 +36,10 @@ describe('Organizations Endpoints', () => {
   let superAdminToken: string;
   let ownerToken: string;
   let ownerId: string;
+  let adminToken: string;
+  let adminId: string;
+  let viewerToken: string;
+  let viewerId: string;
   let regularToken: string;
   let regularId: string;
   let organizationId: string;
@@ -52,6 +70,16 @@ describe('Organizations Endpoints', () => {
       password: ownerUser.password,
     });
     ownerToken = ownerLoginRes.data.accessToken;
+
+    // Register admin user (viewer by default)
+    const adminRes = await axios.post('/api/auth/register', adminUser);
+    adminToken = adminRes.data.accessToken;
+    adminId = adminRes.data.user.id;
+
+    // Register viewer user (viewer by default)
+    const viewerRes = await axios.post('/api/auth/register', viewerUser);
+    viewerToken = viewerRes.data.accessToken;
+    viewerId = viewerRes.data.user.id;
 
     // Register regular user (viewer by default)
     const regularRes = await axios.post('/api/auth/register', regularUser);
@@ -182,21 +210,132 @@ describe('Organizations Endpoints', () => {
     it('should allow owner to add a member with admin role', async () => {
       const res = await axios.post(
         `/api/organizations/${organizationId}/members`,
-        { userId: regularId, role: 'admin' },
+        { userId: adminId, role: 'admin' },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       );
 
       expect(res.status).toBe(201);
       expect(res.data.message).toBe('Member added successfully');
-      expect(res.data.userId).toBe(regularId);
+      expect(res.data.userId).toBe(adminId);
       expect(res.data.role).toBe('admin');
 
-      // Re-login regular user to get updated token
+      // Re-login admin user to get updated token with org membership
       const loginRes = await axios.post('/api/auth/login', {
-        email: regularUser.email,
-        password: regularUser.password,
+        email: adminUser.email,
+        password: adminUser.password,
       });
-      regularToken = loginRes.data.accessToken;
+      adminToken = loginRes.data.accessToken;
+    });
+
+    it('should allow owner to add a member with viewer role', async () => {
+      const res = await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: viewerId, role: 'viewer' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      expect(res.status).toBe(201);
+      expect(res.data.role).toBe('viewer');
+
+      // Re-login viewer user to get updated token with org membership
+      const loginRes = await axios.post('/api/auth/login', {
+        email: viewerUser.email,
+        password: viewerUser.password,
+      });
+      viewerToken = loginRes.data.accessToken;
+    });
+
+    it('should allow owner to add a member with owner role', async () => {
+      // Create a new user to add as owner
+      const newOwnerRes = await axios.post('/api/auth/register', {
+        email: `new-owner-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'New',
+        lastName: 'Owner',
+      });
+
+      const res = await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: newOwnerRes.data.user.id, role: 'owner' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      expect(res.status).toBe(201);
+      expect(res.data.role).toBe('owner');
+    });
+
+    it('should allow admin to add a member with admin role', async () => {
+      // Create a new user to add
+      const newUserRes = await axios.post('/api/auth/register', {
+        email: `admin-adds-admin-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'Admin',
+        lastName: 'Added',
+      });
+
+      const res = await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: newUserRes.data.user.id, role: 'admin' },
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      );
+
+      expect(res.status).toBe(201);
+      expect(res.data.role).toBe('admin');
+    });
+
+    it('should allow admin to add a member with viewer role', async () => {
+      // Create a new user to add
+      const newUserRes = await axios.post('/api/auth/register', {
+        email: `admin-adds-viewer-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'Viewer',
+        lastName: 'Added',
+      });
+
+      const res = await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: newUserRes.data.user.id, role: 'viewer' },
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      );
+
+      expect(res.status).toBe(201);
+      expect(res.data.role).toBe('viewer');
+    });
+
+    it('should NOT allow admin to add a member with owner role', async () => {
+      // Create a new user to add
+      const newUserRes = await axios.post('/api/auth/register', {
+        email: `admin-tries-owner-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'Cannot',
+        lastName: 'BeOwner',
+      });
+
+      try {
+        await axios.post(
+          `/api/organizations/${organizationId}/members`,
+          { userId: newUserRes.data.user.id, role: 'owner' },
+          { headers: { Authorization: `Bearer ${adminToken}` } }
+        );
+        fail('Should have thrown an error');
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        expect(axiosError.response?.status).toBe(403);
+      }
+    });
+
+    it('should NOT allow viewer to add members', async () => {
+      try {
+        await axios.post(
+          `/api/organizations/${organizationId}/members`,
+          { userId: regularId, role: 'viewer' },
+          { headers: { Authorization: `Bearer ${viewerToken}` } }
+        );
+        fail('Should have thrown an error');
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        expect(axiosError.response?.status).toBe(403);
+      }
     });
 
     it('should fail to add member to non-existent organization', async () => {
@@ -218,7 +357,7 @@ describe('Organizations Endpoints', () => {
       try {
         await axios.post(
           `/api/organizations/${organizationId}/members`,
-          { userId: regularId, role: 'viewer' },
+          { userId: adminId, role: 'viewer' },
           { headers: { Authorization: `Bearer ${ownerToken}` } }
         );
         fail('Should have thrown an error');
@@ -229,9 +368,135 @@ describe('Organizations Endpoints', () => {
     });
   });
 
+  describe('GET /api/organizations/:id/members - Get Members', () => {
+    it('should allow owner to get members', async () => {
+      const res = await axios.get(
+        `/api/organizations/${organizationId}/members`,
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.data)).toBe(true);
+      expect(res.data.length).toBeGreaterThan(0);
+    });
+
+    it('should allow admin to get members', async () => {
+      const res = await axios.get(
+        `/api/organizations/${organizationId}/members`,
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      );
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.data)).toBe(true);
+    });
+
+    it('should allow viewer to get members', async () => {
+      const res = await axios.get(
+        `/api/organizations/${organizationId}/members`,
+        { headers: { Authorization: `Bearer ${viewerToken}` } }
+      );
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.data)).toBe(true);
+    });
+
+    it('should NOT allow non-member to get members', async () => {
+      try {
+        await axios.get(
+          `/api/organizations/${organizationId}/members`,
+          { headers: { Authorization: `Bearer ${regularToken}` } }
+        );
+        fail('Should have thrown an error');
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        expect(axiosError.response?.status).toBe(403);
+      }
+    });
+  });
+
+  describe('PUT /api/organizations/:id/members/:userId - Update Member Role', () => {
+    let memberToUpdate: string;
+    let memberToken: string;
+
+    beforeAll(async () => {
+      // Create a user to update
+      const memberRes = await axios.post('/api/auth/register', {
+        email: `member-update-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'Member',
+        lastName: 'ToUpdate',
+      });
+      memberToUpdate = memberRes.data.user.id;
+      memberToken = memberRes.data.accessToken;
+
+      // Add member to organization as viewer
+      await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: memberToUpdate, role: 'viewer' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+    });
+
+    it('should allow owner to update member role to admin', async () => {
+      const res = await axios.put(
+        `/api/organizations/${organizationId}/members/${memberToUpdate}`,
+        { role: 'admin' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.data.role).toBe('admin');
+    });
+
+    it('should allow owner to update member role to owner', async () => {
+      const res = await axios.put(
+        `/api/organizations/${organizationId}/members/${memberToUpdate}`,
+        { role: 'owner' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.data.role).toBe('owner');
+    });
+
+    it('should NOT allow admin to promote member to owner', async () => {
+      // First demote the member back to viewer
+      await axios.put(
+        `/api/organizations/${organizationId}/members/${memberToUpdate}`,
+        { role: 'viewer' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      try {
+        await axios.put(
+          `/api/organizations/${organizationId}/members/${memberToUpdate}`,
+          { role: 'owner' },
+          { headers: { Authorization: `Bearer ${adminToken}` } }
+        );
+        fail('Should have thrown an error');
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        expect(axiosError.response?.status).toBe(403);
+      }
+    });
+
+    it('should NOT allow viewer to update member roles', async () => {
+      try {
+        await axios.put(
+          `/api/organizations/${organizationId}/members/${memberToUpdate}`,
+          { role: 'admin' },
+          { headers: { Authorization: `Bearer ${viewerToken}` } }
+        );
+        fail('Should have thrown an error');
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        expect(axiosError.response?.status).toBe(403);
+      }
+    });
+  });
+
   describe('DELETE /api/organizations/:id/members/:userId - Remove Member', () => {
     let memberToRemove: string;
-    let memberToken: string;
 
     beforeAll(async () => {
       // Create another user to remove
@@ -242,7 +507,6 @@ describe('Organizations Endpoints', () => {
         lastName: 'ToRemove',
       });
       memberToRemove = memberRes.data.user.id;
-      memberToken = memberRes.data.accessToken;
 
       // Add member to organization
       await axios.post(
@@ -262,11 +526,50 @@ describe('Organizations Endpoints', () => {
       expect(res.data.message).toBe('Member removed successfully');
     });
 
-    it('should NOT allow non-owner to remove members', async () => {
+    it('should allow admin to remove a viewer member', async () => {
+      // Create a new member to remove
+      const newMemberRes = await axios.post('/api/auth/register', {
+        email: `admin-removes-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'Admin',
+        lastName: 'Removes',
+      });
+
+      // Add member
+      await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: newMemberRes.data.user.id, role: 'viewer' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
+      const res = await axios.delete(
+        `/api/organizations/${organizationId}/members/${newMemberRes.data.user.id}`,
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      );
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should NOT allow viewer to remove members', async () => {
+      // Create a new member to try to remove
+      const newMemberRes = await axios.post('/api/auth/register', {
+        email: `viewer-removes-${Date.now()}@example.com`,
+        password: 'Password123!',
+        firstName: 'Viewer',
+        lastName: 'Removes',
+      });
+
+      // Add member
+      await axios.post(
+        `/api/organizations/${organizationId}/members`,
+        { userId: newMemberRes.data.user.id, role: 'viewer' },
+        { headers: { Authorization: `Bearer ${ownerToken}` } }
+      );
+
       try {
         await axios.delete(
-          `/api/organizations/${organizationId}/members/${regularId}`,
-          { headers: { Authorization: `Bearer ${regularToken}` } }
+          `/api/organizations/${organizationId}/members/${newMemberRes.data.user.id}`,
+          { headers: { Authorization: `Bearer ${viewerToken}` } }
         );
         fail('Should have thrown an error');
       } catch (error) {

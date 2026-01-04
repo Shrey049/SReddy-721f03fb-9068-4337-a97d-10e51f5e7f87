@@ -126,6 +126,7 @@ describe('Tasks Endpoints', () => {
         status: 'todo',
         priority: 'high',
         dueDate: '2026-02-01T00:00:00Z',
+        organizationId,
       };
 
       const res = await axios.post('/api/tasks', taskData, {
@@ -150,6 +151,7 @@ describe('Tasks Endpoints', () => {
         description: 'Task created by admin',
         status: 'todo',
         priority: 'medium',
+        organizationId,
       };
 
       const res = await axios.post('/api/tasks', taskData, {
@@ -167,6 +169,7 @@ describe('Tasks Endpoints', () => {
           {
             title: 'Viewer Task',
             description: 'Should fail',
+            organizationId,
           },
           { headers: { Authorization: `Bearer ${viewerToken}` } }
         );
@@ -184,6 +187,7 @@ describe('Tasks Endpoints', () => {
         status: 'todo',
         priority: 'high',
         assignedToId: viewerId,
+        organizationId,
       };
 
       const res = await axios.post('/api/tasks', taskData, {
@@ -198,6 +202,7 @@ describe('Tasks Endpoints', () => {
       try {
         await axios.post('/api/tasks', {
           title: 'Unauthorized Task',
+          organizationId,
         });
         fail('Should have thrown an error');
       } catch (error) {
@@ -210,7 +215,7 @@ describe('Tasks Endpoints', () => {
       try {
         await axios.post(
           '/api/tasks',
-          { description: 'No title' },
+          { description: 'No title', organizationId },
           { headers: { Authorization: `Bearer ${ownerToken}` } }
         );
         fail('Should have thrown an error');
@@ -227,6 +232,7 @@ describe('Tasks Endpoints', () => {
           {
             title: 'Invalid Status Task',
             status: 'invalid_status',
+            organizationId,
           },
           { headers: { Authorization: `Bearer ${ownerToken}` } }
         );
@@ -372,6 +378,7 @@ describe('Tasks Endpoints', () => {
         {
           title: 'Task for Viewer',
           assignedToId: viewerId,
+          organizationId,
         },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       );
@@ -401,6 +408,7 @@ describe('Tasks Endpoints', () => {
           title: 'Viewer Status Task',
           assignedToId: viewerId,
           status: 'todo',
+          organizationId,
         },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       );
@@ -461,7 +469,7 @@ describe('Tasks Endpoints', () => {
     beforeAll(async () => {
       const res = await axios.post(
         '/api/tasks',
-        { title: 'Task to Delete' },
+        { title: 'Task to Delete', organizationId },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       );
       taskToDelete = res.data.id;
@@ -471,7 +479,7 @@ describe('Tasks Endpoints', () => {
       // Create task assigned to viewer
       const taskRes = await axios.post(
         '/api/tasks',
-        { title: 'Viewer Cannot Delete', assignedToId: viewerId },
+        { title: 'Viewer Cannot Delete', assignedToId: viewerId, organizationId },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       );
 
@@ -508,7 +516,7 @@ describe('Tasks Endpoints', () => {
     it('should allow admin to delete a task', async () => {
       const taskRes = await axios.post(
         '/api/tasks',
-        { title: 'Admin Delete Task' },
+        { title: 'Admin Delete Task', organizationId },
         { headers: { Authorization: `Bearer ${adminToken}` } }
       );
 

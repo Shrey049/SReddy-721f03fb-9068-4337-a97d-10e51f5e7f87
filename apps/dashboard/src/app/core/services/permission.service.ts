@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { AuthService } from './auth.service';
-import { Role } from '@turbovets-workspace/data';
+import { Role, IUserOrganizationMembership } from '@turbovets-workspace/data';
 
 /**
  * PermissionService - Centralized role-based permission checking
@@ -26,14 +26,73 @@ export class PermissionService {
         return !!this.currentUser;
     }
 
+    /**
+     * Get user's organizations
+     */
+    get userOrganizations(): IUserOrganizationMembership[] {
+        return this.currentUser?.organizations || [];
+    }
+
+    /**
+     * Get user's role in a specific organization
+     */
+    getUserOrgRole(orgId: string): 'owner' | 'admin' | 'viewer' | null {
+        const membership = this.userOrganizations.find(o => o.organizationId === orgId);
+        return membership?.role || null;
+    }
+
+    /**
+     * Check if user is owner of a specific org
+     */
+    isOrgOwner(orgId: string): boolean {
+        return this.getUserOrgRole(orgId) === 'owner';
+    }
+
+    /**
+     * Check if user is admin of a specific org
+     */
+    isOrgAdmin(orgId: string): boolean {
+        return this.getUserOrgRole(orgId) === 'admin';
+    }
+
+    /**
+     * Check if user is viewer of a specific org
+     */
+    isOrgViewer(orgId: string): boolean {
+        return this.getUserOrgRole(orgId) === 'viewer';
+    }
+
+    /**
+     * Check if user is owner or admin of any org
+     */
+    isOwnerOrAdminOfAnyOrg(): boolean {
+        return this.userOrganizations.some(o => o.role === 'owner' || o.role === 'admin');
+    }
+
     // ===== TASK PERMISSIONS =====
 
     canCreateTask(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN]);
+        // Super admin can create tasks anywhere
+        if (this.isSuperAdmin()) return true;
+        // Users who are owner or admin in any org can create tasks
+        return this.isOwnerOrAdminOfAnyOrg();
+    }
+
+    canCreateTaskInOrg(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        const role = this.getUserOrgRole(orgId);
+        return role === 'owner' || role === 'admin';
     }
 
     canDeleteTask(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN]);
+        if (this.isSuperAdmin()) return true;
+        return this.isOwnerOrAdminOfAnyOrg();
+    }
+
+    canDeleteTaskInOrg(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        const role = this.getUserOrgRole(orgId);
+        return role === 'owner' || role === 'admin';
     }
 
     canEditTask(): boolean {
@@ -49,38 +108,51 @@ export class PermissionService {
     // ===== ORGANIZATION PERMISSIONS =====
 
     canCreateOrganization(): boolean {
-        // Only OWNER can create organizations (and only one if not already owner)
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER]);
+        // Any authenticated user can create an organization
+        return this.isAuthenticated;
     }
 
-    canEditOrganization(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER]);
+    canEditOrganization(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        return this.isOrgOwner(orgId);
     }
 
-    canDeleteOrganization(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER]);
+    canDeleteOrganization(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        return this.isOrgOwner(orgId);
     }
 
     // ===== MEMBER PERMISSIONS =====
 
-    canAddMembers(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN]);
+    canAddMembers(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        const role = this.getUserOrgRole(orgId);
+        return role === 'owner' || role === 'admin';
     }
 
-    canRemoveMembers(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER]);
+    canRemoveMembers(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        return this.isOrgOwner(orgId);
     }
 
-    canAssignOwnerRole(): boolean {
-        // Only Super Admins can assign Owner role
-        return this.hasRole(Role.SUPER_ADMIN);
+    canUpdateMemberRole(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        return this.isOrgOwner(orgId);
     }
 
-    getAssignableRoles(): string[] {
-        // Return list of roles the current user can assign to new members
-        if (this.hasRole(Role.SUPER_ADMIN)) {
+    /**
+     * Get roles that can be assigned by the current user in a specific org
+     */
+    getAssignableRoles(orgId: string): string[] {
+        if (this.isSuperAdmin()) {
             return ['owner', 'admin', 'viewer'];
-        } else if (this.hasAnyRole([Role.OWNER, Role.ADMIN])) {
+        }
+
+        const role = this.getUserOrgRole(orgId);
+        if (role === 'owner') {
+            return ['owner', 'admin', 'viewer'];
+        }
+        if (role === 'admin') {
             return ['admin', 'viewer'];
         }
         return [];
@@ -89,15 +161,18 @@ export class PermissionService {
     // ===== ADMIN PERMISSIONS =====
 
     canViewUserManagement(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER]);
+        if (this.isSuperAdmin()) return true;
+        // Users who are owners of any org can view user management
+        return this.userOrganizations.some(o => o.role === 'owner');
     }
 
     canViewAuditLog(): boolean {
-        return this.hasAnyRole([Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN]);
+        if (this.isSuperAdmin()) return true;
+        return this.isOwnerOrAdminOfAnyOrg();
     }
 
     canPromoteUsers(): boolean {
-        return this.hasRole(Role.SUPER_ADMIN);
+        return this.isSuperAdmin();
     }
 
     // ===== HELPER METHODS =====
@@ -115,15 +190,36 @@ export class PermissionService {
         return this.hasRole(Role.SUPER_ADMIN);
     }
 
-    isOwner(): boolean {
-        return this.hasRole(Role.OWNER);
+    // ===== ORGANIZATION CONTEXT PERMISSIONS =====
+
+    /**
+     * Check if user belongs to a specific organization
+     */
+    belongsToOrganization(orgId: string): boolean {
+        return this.userOrganizations.some(o => o.organizationId === orgId);
     }
 
-    isAdmin(): boolean {
-        return this.hasRole(Role.ADMIN);
+    /**
+     * Check if user can manage (add/remove members) a specific organization
+     */
+    canManageOrganization(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        const role = this.getUserOrgRole(orgId);
+        return role === 'owner' || role === 'admin';
     }
 
-    isViewer(): boolean {
-        return this.hasRole(Role.VIEWER);
+    /**
+     * Check if user can delete a specific organization (Owner of that org or Super Admin)
+     */
+    canDeleteSpecificOrganization(orgId: string): boolean {
+        if (this.isSuperAdmin()) return true;
+        return this.isOrgOwner(orgId);
+    }
+
+    /**
+     * Get the first organization ID for the current user (for default selection)
+     */
+    getFirstOrganizationId(): string | null {
+        return this.userOrganizations[0]?.organizationId || null;
     }
 }

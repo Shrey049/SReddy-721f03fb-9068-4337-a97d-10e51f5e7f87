@@ -29,10 +29,16 @@ async function seed() {
     const orgRepo = dataSource.getRepository(Organization);
     const userOrgRepo = dataSource.getRepository(UserOrganization);
     const taskRepo = dataSource.getRepository(Task);
+    const auditLogRepo = dataSource.getRepository(AuditLog);
 
-    // Clear existing data (optional, or check if exists)
-    // await taskRepo.delete({}); // Careful with foreign keys
-    // ...
+    // Clear existing data in correct order (respecting foreign keys)
+    console.log('Clearing existing data...');
+    await auditLogRepo.delete({});
+    await taskRepo.delete({});
+    await userOrgRepo.delete({});
+    await orgRepo.delete({});
+    await userRepo.delete({});
+    console.log('Database cleared.');
 
     // 1. Create Organizations
     console.log('Seeding Organizations...');

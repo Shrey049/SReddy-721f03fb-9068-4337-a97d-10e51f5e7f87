@@ -1,6 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { UserOrganization } from '../../organizations/entities/user-organization.entity';
-import { Organization } from '../../organizations/entities/organization.entity';
 import { Task } from '../../tasks/entities/task.entity';
 import { AuditLog } from '../../audit/entities/audit-log.entity';
 import { Role } from '@turbovets-workspace/data';
@@ -30,16 +29,9 @@ export class User {
         enum: Role,
         default: Role.VIEWER
     })
-    role: Role;  // Simplified: single role (super_admin, owner, admin, viewer)
+    role: Role;  // Global role: super_admin or viewer (default for new users)
 
-    @Column({ nullable: true })
-    organizationId: string;  // Direct FK to Organization (nullable for super_admin)
-
-    @ManyToOne(() => Organization, { nullable: true })
-    @JoinColumn({ name: 'organizationId' })
-    organization: Organization;
-
-    // Keep for backward compatibility, but simplified flow uses direct role/organizationId
+    // User-Organization memberships (many-to-many through UserOrganization)
     @OneToMany(() => UserOrganization, (userOrg) => userOrg.user)
     userOrganizations: UserOrganization[];
 

@@ -73,7 +73,7 @@ import { AuthService } from '../../../core/services/auth.service';
               <tr>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Organization</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Organizations</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" class="relative px-6 py-3">
@@ -101,13 +101,12 @@ import { AuthService } from '../../../core/services/auth.service';
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.email }}</td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div *ngIf="getOrgName(user.organizationId)" class="flex items-center gap-2">
+                  <div class="flex items-center gap-2">
                     <div class="h-6 w-6 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-medium">
-                      {{ getOrgName(user.organizationId)?.charAt(0) }}
+                      {{ user.organizationCount || 0 }}
                     </div>
-                    <span class="text-sm text-gray-900">{{ getOrgName(user.organizationId) }}</span>
+                    <span class="text-sm text-gray-600">{{ (user.organizationCount || 0) === 1 ? 'org' : 'orgs' }}</span>
                   </div>
-                  <span *ngIf="!getOrgName(user.organizationId)" class="text-sm text-gray-400">—</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span class="px-2.5 py-1 text-xs font-medium rounded-full"
@@ -217,7 +216,7 @@ export class UserManagementComponent implements OnInit {
   applyFilters() {
     this.filteredUsers = this.users.filter(user => {
       if (this.selectedRole && user.role !== this.selectedRole) return false;
-      if (this.selectedOrgId && user.organizationId !== this.selectedOrgId) return false;
+      if (this.selectedOrgId && !user.organizations?.some(o => o.organizationId === this.selectedOrgId)) return false;
       return true;
     });
     this.cdr.detectChanges();
@@ -226,6 +225,15 @@ export class UserManagementComponent implements OnInit {
   getOrgName(orgId: string | undefined): string | undefined {
     if (!orgId) return undefined;
     return this.orgMap.get(orgId);
+  }
+
+  getUserPrimaryOrgName(user: IUser): string | undefined {
+    if (!user.organizations || user.organizations.length === 0) return undefined;
+    // Return the first organization's name (or the one where user is owner/admin)
+    const primaryOrg = user.organizations.find(o => o.role === 'owner')
+      || user.organizations.find(o => o.role === 'admin')
+      || user.organizations[0];
+    return primaryOrg?.organizationName || this.orgMap.get(primaryOrg?.organizationId);
   }
 
   formatRole(role?: string | Role): string {

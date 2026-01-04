@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { Task } from '../../tasks/entities/task.entity';
-import { User } from '../../users/entities/user.entity';
+import { UserOrganization } from './user-organization.entity';
 
 @Entity('organizations')
 export class Organization {
@@ -13,8 +13,8 @@ export class Organization {
     @OneToMany(() => Task, (task) => task.organization)
     tasks: Task[];
 
-    @OneToMany(() => User, (user) => user.organization)
-    users: User[];
+    @OneToMany(() => UserOrganization, (userOrg) => userOrg.organization)
+    userOrganizations: UserOrganization[];
 
     @CreateDateColumn()
     createdAt: Date;

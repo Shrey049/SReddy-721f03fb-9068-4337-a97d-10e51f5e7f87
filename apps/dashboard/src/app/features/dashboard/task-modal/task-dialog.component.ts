@@ -1,12 +1,13 @@
 
-import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { UsersService } from '../../../core/services/users.service';
 import { OrganizationService } from '../../../core/services/organization.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PermissionService } from '../../../core/services/permission.service';
-import { IUser, ITask, IOrganization, Role } from '@turbovets-workspace/data';
+import { IUser, ITask, IOrganization, IOrganizationMember, Role } from '@turbovets-workspace/data';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-task-dialog',
@@ -137,7 +138,7 @@ import { IUser, ITask, IOrganization, Role } from '@turbovets-workspace/data';
     </div>
   `
 })
-export class TaskDialogComponent implements OnInit, OnChanges {
+export class TaskDialogComponent implements OnInit, OnChanges, OnDestroy {
   @Input() isOpen = false;
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() task: ITask | null = null;
@@ -146,11 +147,12 @@ export class TaskDialogComponent implements OnInit, OnChanges {
   @Output() updateTask = new EventEmitter<{ id: string; data: any }>();
 
   taskForm: FormGroup;
-  users: IUser[] = [];
+  users: IOrganizationMember[] = [];
   organizations: IOrganization[] = [];
   showOrgSelector = false;
   isSubmitting = false;
   currentUser: any = null;
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -171,10 +173,18 @@ export class TaskDialogComponent implements OnInit, OnChanges {
   }
 
   ngOnInit(): void {
-    this.loadUsers();
+    // Watch org selection changes to reload users
+    const orgSub = this.taskForm.get('organizationId')?.valueChanges.subscribe(orgId => {
+      if (orgId) {
+        this.loadUsersForOrg(orgId);
+      } else {
+        this.users = [];
+      }
+    });
+    if (orgSub) this.subscriptions.push(orgSub);
 
     // Check if Super Admin - show org selector
-    this.authService.currentUser$.subscribe(user => {
+    const userSub = this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
       if (user?.role === Role.SUPER_ADMIN) {
         this.showOrgSelector = true;
@@ -182,8 +192,27 @@ export class TaskDialogComponent implements OnInit, OnChanges {
         // Make org required for Super Admin when creating
         this.taskForm.get('organizationId')?.setValidators(Validators.required);
         this.taskForm.get('organizationId')?.updateValueAndValidity();
+      } else if (user?.organizations?.length > 0) {
+        // Non-super-admin: auto-select their first organization and load users
+        const firstOrgId = user.organizations[0].organizationId;
+        this.taskForm.patchValue({ organizationId: firstOrgId });
+        this.loadUsersForOrg(firstOrgId);
+
+        // If user has multiple orgs, show selector
+        if (user.organizations.length > 1) {
+          this.showOrgSelector = true;
+          this.organizations = user.organizations.map((o: any) => ({
+            id: o.organizationId,
+            name: o.organizationName
+          }));
+        }
       }
     });
+    this.subscriptions.push(userSub);
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(s => s.unsubscribe());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -216,9 +245,15 @@ export class TaskDialogComponent implements OnInit, OnChanges {
     return d.toISOString().split('T')[0];
   }
 
-  loadUsers() {
-    this.usersService.findAll().subscribe((users: IUser[]) => {
-      this.users = users;
+  loadUsersForOrg(orgId: string) {
+    this.orgService.getMembers(orgId).subscribe({
+      next: (members: IOrganizationMember[]) => {
+        this.users = members;
+      },
+      error: (err) => {
+        console.error('Failed to load org members:', err);
+        this.users = [];
+      }
     });
   }
 
@@ -240,12 +275,19 @@ export class TaskDialogComponent implements OnInit, OnChanges {
 
       const formData = { ...this.taskForm.value };
 
-      // Clean up empty strings
+      // Clean up empty strings (but keep organizationId - it's required!)
       if (!formData.assignedToId) delete formData.assignedToId;
       if (!formData.dueDate) delete formData.dueDate;
-      if (!formData.organizationId) delete formData.organizationId;
+      // organizationId must always be sent for task creation
+      if (!formData.organizationId && this.mode === 'create') {
+        console.error('organizationId is required to create a task');
+        this.isSubmitting = false;
+        return;
+      }
 
       if (this.mode === 'edit' && this.task) {
+        // Don't send organizationId on edit - it shouldn't change
+        delete formData.organizationId;
         this.updateTask.emit({ id: this.task.id, data: formData });
       } else {
         this.saveTask.emit(formData);

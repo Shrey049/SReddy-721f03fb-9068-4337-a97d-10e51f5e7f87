@@ -9,6 +9,9 @@ import {
 import { TaskStatus, TaskPriority } from '../../enums';
 
 export class CreateTaskDto {
+  @IsUUID()
+  organizationId!: string;
+
   @IsString()
   @MaxLength(255)
   title!: string;

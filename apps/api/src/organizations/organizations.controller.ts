@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Put } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto, UpdateOrganizationDto, Role } from '@turbovets-workspace/data';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -10,7 +10,7 @@ import { RolesGuard, Roles, CurrentUser, AuthenticatedUser } from '@turbovets-wo
 export class OrganizationsController {
     constructor(private readonly organizationsService: OrganizationsService) { }
 
-    @Roles(Role.OWNER)
+    @Roles(Role.SUPER_ADMIN, Role.OWNER)
     @Post()
     create(@Body() createOrganizationDto: CreateOrganizationDto, @CurrentUser() user: AuthenticatedUser) {
         return this.organizationsService.create(createOrganizationDto, user);
@@ -26,19 +26,21 @@ export class OrganizationsController {
         return this.organizationsService.findOne(id);
     }
 
-    @Roles(Role.OWNER)
     @Patch(':id')
     update(@Param('id') id: string, @Body() updateOrganizationDto: UpdateOrganizationDto, @CurrentUser() user: AuthenticatedUser) {
         return this.organizationsService.update(id, updateOrganizationDto, user);
     }
 
-    @Roles(Role.OWNER)
     @Delete(':id')
     remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
         return this.organizationsService.remove(id, user);
     }
 
-    @Roles(Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN)
+    @Get(':id/members')
+    getMembers(@Param('id') orgId: string, @CurrentUser() user: AuthenticatedUser) {
+        return this.organizationsService.getMembers(orgId, user);
+    }
+
     @Post(':id/members')
     addMember(
         @Param('id') orgId: string,
@@ -46,10 +48,19 @@ export class OrganizationsController {
         @Body('role') role: string,
         @CurrentUser() user: AuthenticatedUser
     ) {
-        return this.organizationsService.addMember(orgId, userId, role as any, user);
+        return this.organizationsService.addMember(orgId, userId, role, user);
     }
 
-    @Roles(Role.OWNER)
+    @Put(':id/members/:userId')
+    updateMemberRole(
+        @Param('id') orgId: string,
+        @Param('userId') userId: string,
+        @Body('role') role: string,
+        @CurrentUser() user: AuthenticatedUser
+    ) {
+        return this.organizationsService.updateMemberRole(orgId, userId, role, user);
+    }
+
     @Delete(':id/members/:userId')
     removeMember(
         @Param('id') orgId: string,

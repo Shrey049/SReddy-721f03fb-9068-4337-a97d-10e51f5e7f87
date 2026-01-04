@@ -10,10 +10,10 @@ import { Role } from '@turbovets-workspace/data';
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
-    @Roles(Role.SUPER_ADMIN, Role.OWNER)
+    // No @Roles - service handles authorization based on org-level roles
     @Get()
-    async findAll() {
-        return this.usersService.findAll();
+    async findAll(@CurrentUser() user: AuthenticatedUser) {
+        return this.usersService.findAll(user);
     }
 
     @Roles(Role.SUPER_ADMIN, Role.OWNER)

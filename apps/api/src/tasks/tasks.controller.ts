@@ -10,7 +10,7 @@ import { CurrentUser, Roles, AuthenticatedUser } from '@turbovets-workspace/auth
 export class TasksController {
     constructor(private readonly tasksService: TasksService) { }
 
-    @Roles(Role.OWNER, Role.ADMIN)
+    // No @Roles - service checks org-level owner/admin permissions
     @Post()
     create(@Body() createTaskDto: CreateTaskDto, @CurrentUser() user: AuthenticatedUser) {
         return this.tasksService.create(createTaskDto, user);
@@ -38,7 +38,7 @@ export class TasksController {
         return this.tasksService.updateStatus(id, updateTaskStatusDto.status, user);
     }
 
-    @Roles(Role.OWNER, Role.ADMIN)
+    // No @Roles - service checks org-level owner/admin permissions
     @Delete(':id')
     remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
         return this.tasksService.remove(id, user);

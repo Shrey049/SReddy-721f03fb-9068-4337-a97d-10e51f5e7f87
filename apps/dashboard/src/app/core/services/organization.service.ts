@@ -2,7 +2,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { IOrganization, CreateOrganizationDto, UpdateOrganizationDto, Role } from '@turbovets-workspace/data';
+import { IOrganization, IOrganizationMember, CreateOrganizationDto, UpdateOrganizationDto } from '@turbovets-workspace/data';
 
 @Injectable({
     providedIn: 'root'
@@ -32,8 +32,16 @@ export class OrganizationService {
         return this.http.delete<void>(`${this.apiUrl}/${id}`);
     }
 
+    getMembers(orgId: string): Observable<IOrganizationMember[]> {
+        return this.http.get<IOrganizationMember[]>(`${this.apiUrl}/${orgId}/members`);
+    }
+
     addMember(orgId: string, userId: string, role: string): Observable<void> {
         return this.http.post<void>(`${this.apiUrl}/${orgId}/members`, { userId, role });
+    }
+
+    updateMemberRole(orgId: string, userId: string, role: string): Observable<void> {
+        return this.http.put<void>(`${this.apiUrl}/${orgId}/members/${userId}`, { role });
     }
 
     removeMember(orgId: string, userId: string): Observable<void> {

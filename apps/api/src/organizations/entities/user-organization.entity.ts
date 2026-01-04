@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Unique } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Organization } from './organization.entity';
 
@@ -8,9 +8,12 @@ export enum OrganizationRole {
     VIEWER = 'viewer',
 }
 
-// NOTE: This entity is kept for potential future use but is no longer actively used
-// in the simplified 1:1 user-org model
+/**
+ * UserOrganization - Junction table for User-Organization many-to-many relationship
+ * Each user can belong to multiple organizations with different roles per org
+ */
 @Entity('user_organizations')
+@Unique(['userId', 'organizationId']) // A user can only have one membership per organization
 export class UserOrganization {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -28,11 +31,11 @@ export class UserOrganization {
     })
     role: OrganizationRole;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, (user) => user.userOrganizations, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'userId' })
     user: User;
 
-    @ManyToOne(() => Organization)
+    @ManyToOne(() => Organization, (org) => org.userOrganizations, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'organizationId' })
     organization: Organization;
 

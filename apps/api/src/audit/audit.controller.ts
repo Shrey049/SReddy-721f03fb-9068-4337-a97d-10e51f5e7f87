@@ -28,7 +28,7 @@ export class AuditController {
      * - Admin: Logs for their organization only
      * - Viewer: No access (403 Forbidden)
      */
-    @Roles(Role.SUPER_ADMIN, Role.OWNER, Role.ADMIN)
+    // No @Roles - service handles org-level authorization
     @Get()
     async findAll(
         @Query('page') page?: string,

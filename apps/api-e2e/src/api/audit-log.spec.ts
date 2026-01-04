@@ -118,13 +118,13 @@ describe('Audit Log Endpoints', () => {
     // Create some tasks to generate audit logs
     await axios.post(
       '/api/tasks',
-      { title: 'Audit Test Task 1', priority: 'high' },
+      { title: 'Audit Test Task 1', priority: 'high', organizationId },
       { headers: { Authorization: `Bearer ${ownerToken}` } }
     );
 
     await axios.post(
       '/api/tasks',
-      { title: 'Audit Test Task 2', priority: 'medium' },
+      { title: 'Audit Test Task 2', priority: 'medium', organizationId },
       { headers: { Authorization: `Bearer ${adminToken}` } }
     );
   });
@@ -294,7 +294,7 @@ describe('Audit Log Endpoints', () => {
       // Create a task
       const taskRes = await axios.post(
         '/api/tasks',
-        { title: 'Audit Verification Task', priority: 'low' },
+        { title: 'Audit Verification Task', priority: 'low', organizationId },
         { headers: { Authorization: `Bearer ${ownerToken}` } }
       );
 
