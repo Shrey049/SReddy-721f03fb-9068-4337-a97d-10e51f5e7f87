@@ -22,8 +22,8 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
           <p class="text-sm text-gray-500 mt-1">Manage your organizations and teams</p>
         </div>
         
-        <!-- Create Button - Only for OWNER -->
-        <button *ngIf="permissionService.canCreateOrganization() && organizations.length === 0" 
+        <!-- Create Button - Super Admin can create multiple orgs -->
+        <button *ngIf="permissionService.canCreateOrganization()" 
                 (click)="showCreateModal = true" 
                 [disabled]="isCreating"
                 class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50">
